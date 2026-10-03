@@ -14,7 +14,7 @@ DAYS = 30
 
 # ---------------------------------------------------------------- catalog
 def load_catalog() -> list[dict]:
-    return json.loads(CATALOG.read_text())["models"]
+    return json.loads(CATALOG.read_text(encoding="utf-8"))["models"]
 
 
 # ---------------------------------------------------------------- scenarios (the loan assistant, three jobs)
@@ -167,3 +167,36 @@ def time_stream(client, model: str, prompt: str = PROMPT, max_tokens: int = 1500
     out_tokens = usage.completion_tokens if usage else chunks
     return {"ttft_s": round(first or total, 2), "total_s": round(total, 2), "completion_tokens": out_tokens,
             "tokens_per_s": round(out_tokens / total, 1) if total else 0, "text": "".join(text)}
+
+
+if __name__ == "__main__":
+    print("=" * 60)
+    print("Session 10: Model Landscape & Selection Matrix")
+    print("=" * 60)
+
+    catalog = load_catalog()
+    print(f"\nLoaded {len(catalog)} models from {CATALOG.name}:")
+    for m in catalog:
+        price_str = f"in: ${m['price_in']}, out: ${m['price_out']}" if m.get("price_out") is not None else "price missing"
+        print(f"  - {m['id']:<22} | quality: {m['quality']}/5 | lat: {m['latency_s']}s | {price_str}")
+
+    print(f"\nEMI check: Expected EMI = Rs {EXPECTED_EMI:,.2f}, Ratio = {EXPECTED_RATIO}%")
+    test_res = check_answer(f"EMI is Rs {EXPECTED_EMI:.2f}, ratio is {EXPECTED_RATIO}%, which is under 50%.")
+    print(f"Sample answer check score: {test_res['score_out_of_2']}/2")
+
+    print("\nRanking models for scenarios:")
+    for scen_name, scen in SCENARIOS.items():
+        print(f"\n--- Scenario: {scen['title']} ({scen_name}) ---")
+        ranked, excluded = rank(scen, catalog)
+        print(f"  Top models ({len(ranked)} eligible):")
+        for i, m in enumerate(ranked[:3], 1):
+            print(f"    {i}. {m['name']} (Score: {m['score']}, Cost: Rs {m['cost_inr']:,}/mo)")
+        if excluded:
+            print(f"  Excluded ({len(excluded)}):")
+            for name, reasons in excluded[:3]:
+                print(f"    x {name}: {'; '.join(reasons)}")
+    print("\n" + "=" * 60)
+    print("landscape_utils.py ran successfully!")
+    print("To interactively explore and solve the exercises, open:")
+    print("  module01/s10_model_matrix.ipynb")
+    print("=" * 60)
